@@ -1,8 +1,8 @@
 name: cicd
- 
+
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   build:
@@ -35,15 +35,32 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: ssh connect & production
+      - name: ssh connect & production (dev)
+        if: github.ref == 'refs/heads/dev'
         uses: appleboy/ssh-action@v0.1.10
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.PORT }}
+          host: ${{ secrets.HOST_DEV }}
+          username: ${{ secrets.USERNAME_DEV }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: ${{ secrets.PORT_DEV }}
           script: |
-            cd server2
+            cd server-dev
+            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_PASSWORD }}
+            docker system prune -a --volumes -f
+            docker compose pull -q
+            docker compose up --force-recreate --build -d --quiet-pull 2>log.out
+            cat log.out
+
+      - name: ssh connect & production (main)
+        if: github.ref == 'refs/heads/main'
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST_MAIN }}
+          username: ${{ secrets.USERNAME_MAIN }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_MAIN }}
+          port: ${{ secrets.PORT_MAIN }}
+          script: |
+            cd server-main
             docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_PASSWORD }}
             docker system prune -a --volumes -f
             docker compose pull -q
